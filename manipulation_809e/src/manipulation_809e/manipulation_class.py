@@ -20,7 +20,6 @@ class Manipulation(object):
 
         mc.roscpp_initialize(sys.argv)
         rospy.init_node(node_name, anonymous=True)
-        self.locations = {}
 
         # kitting_arm
         # - linear_arm_actuator_joint
@@ -30,6 +29,9 @@ class Manipulation(object):
         # - wrist_1_joint
         # - wrist_2_joint
         # - wrist_3_joint
+
+        # dictionary to store pre-set locations
+        self.locations = {}
 
         name = 'home'
         arm_joints = [0, 0, -1.25, 1.74, -2.66, -1.51, 0]
@@ -47,12 +49,17 @@ class Manipulation(object):
         self.groups = {}
         self.groups['kitting_arm'] = moveit_group
         self._arm_group = self.groups['kitting_arm']
+        self._arm_group.set_goal_orientation_tolerance = 0.001
+        self._arm_group.set_goal_position_tolerance = 0.001
 
         # rospy.logerr(self.groups['kitting_arm'].get_current_pose())
         # ee_link
         # rospy.logerr(self.groups['kitting_arm'].get_end_effector_link())
 
     def main(self):
+        """
+        Main function to start the Node core
+        """
         # self.pickandplace_1()
         pass
 
@@ -99,16 +106,19 @@ class Manipulation(object):
 
     def move_arm_base(self, x):
         """
-        Only move the joint linear_arm_actuator_joint
+        Only move the joint linear_arm_actuator_joint to the x coordinate
 
         Args:
-            location (float): x position in the environment
+            x (float): x position in the world frame
         """
         x = -1.5 - x
         arm_joints = [x, 0, -1.25, 1.74, -2.66, -1.51, 0]
-        self.groups["kitting_arm"].go(arm_joints, wait=True)
+        self._arm_group.go(arm_joints, wait=True)
 
     def pickandplace_1(self):
+        """
+        Hard coded poses for pick and place
+        """
         pickup_pose = Pose()
         pickup_pose.position.x = 0
         pickup_pose.position.y = 0
@@ -118,15 +128,13 @@ class Manipulation(object):
         place_pose.position.x = -2
         place_pose.position.y = 0
         place_pose.position.z = 0.77
-        
+
         self.move_part(pickup_pose, place_pose)
 
     def test_arm_base(self):
-        self._arm_group.set_goal_orientation_tolerance = 0.001
-        self._arm_group.set_goal_position_tolerance = 0.001
-
-        # First: get the arm closer to the part
-        # linear_joint_actuator = 0 at x=-1.5
+        """
+        Testing the arm base moves to the correct world x
+        """
         self.move_arm_base(0)
         rospy.sleep(3.0)
         self.move_arm_base(-1)
@@ -135,12 +143,16 @@ class Manipulation(object):
         rospy.sleep(3.0)
         self.move_arm_base(-3)
 
-    def pick_up(self, pickup_pose):
-        self._arm_group.set_goal_orientation_tolerance = 0.001
-        self._arm_group.set_goal_position_tolerance = 0.001
+    def pick_up_part(self, pickup_pose):
+        """
+        Pick up a part given its pose
+
+        Args:
+            pickup_pose (geometry_msgs.Pose): Pose of the part in the 
+            world frame
+        """
 
         # First: get the arm closer to the part
-        # linear_joint_actuator = 0 at x=-1.5
         self.move_arm_base(pickup_pose.position.x)
 
         # This configuration keeps the gripper flat (facing down)
@@ -183,9 +195,14 @@ class Manipulation(object):
         self._arm_group.go()
 
     def place_part(self, place_pose):
-        self._arm_group.set_goal_orientation_tolerance = 0.001
-        self._arm_group.set_goal_position_tolerance = 0.001
+        """
+        Place a part to the given pose
 
+        Args:
+            place_pose (geometry_msgs.Pose): Pose of the part in the
+            world frame
+        """
+        
         # move the arm closer to the drop pose
         self.move_arm_base(place_pose.position.x)
 
@@ -239,38 +256,38 @@ class Manipulation(object):
             bool: True
         """
 
-        self.pick_up(pickup_pose)
+        self.pick_up_part(pickup_pose)
         self.place_part(place_pose)
 
         return True
 
-    def cartesian_move(self, group, waypoints):
-        group.set_pose_reference_frame("world")
-        (plan, fraction) = group.compute_cartesian_path(waypoints, 0.01, 0.0)
-        group.execute(plan, wait=True)
+    def cartesian_move(self, waypoints):
+        """
+        Move the robotic arm through waypoints
+
+        Args:
+            waypoints (List(geometry_msgs.Pose)): List of waypoints
+        """
+        self._arm_group.set_pose_reference_frame("world")
+        (plan, fraction) = self._arm_group.compute_cartesian_path(
+            waypoints, 0.01, 0.0)
+        self._arm_group.execute(plan, wait=True)
 
     def go_home(self):
+        """
+        Move the robotic arm to the 'home' preset
+        location
+        """
         self.goto_preset_location('home')
 
     def goto_preset_location(self, location_name):
+        """
+        Move the robotic arm to a pre-set location
+
+        Args:
+            location_name (str): Pre-set location
+        """
         arm = self.locations[location_name]
         location_pose = self._arm_group.get_current_joint_values()
         location_pose[:] = arm
         self._arm_group.go(location_pose, wait=True)
-
-    def handle_inputs(self):
-        """
-        Handle arguments passed to the command line
-        """
-
-        config_name = None
-        if rospy.has_param('~config'):
-            config_name = rospy.get_param("~config")
-            if config_name == "home":
-                self.goto_preset_location("home")
-            # elif config_name == "retract":
-            #     self.goto_preset_location("home")
-            else:
-                rospy.logerr("Unknown arm configuration")
-                rospy.on_shutdown(self.myhook)
-                sys.exit(1)
