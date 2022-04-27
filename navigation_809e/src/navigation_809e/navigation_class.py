@@ -9,7 +9,7 @@ from geometry_msgs.msg import Pose, TransformStamped
 from fiducial_msgs.msg import FiducialTransformArray
 import copy
 import tf2_ros
-import roslaunch
+import rosnode
 from enpm809e_msgs.msg import PartInfo, PartInfos
 
 
@@ -35,7 +35,8 @@ class Navigation(object):
             return
         rospy.loginfo("Connected to move base server")
         rospy.loginfo("Starting goals achievements ...")
-
+        
+        
         # self.start_aruco_detect()
         self.movebase_client()
 
@@ -104,4 +105,6 @@ class Navigation(object):
         """
         if status == 3:
             rospy.loginfo("Goal pose reached")
+            # rosnode.kill_nodes(["aruco_detect"])
+            
             # write code to send the robot to the next target
