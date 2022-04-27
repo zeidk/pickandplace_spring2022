@@ -67,17 +67,36 @@ class Manipulation(object):
         """
         Main function to start the Node core
         """
-        # self.pickandplace_1()
+        #
 
-        # publish joint values
-        # joint_value = [-1, 0.09, -0.75, 2.02, -2.11, -1.58, 0]
-        # rospy.loginfo("publishing joint values")
-        # self.publish_joint_values(joint_value)
+        # forward kinematics through joint values publisher
+        self.publish_joint_values()
 
-    def publish_joint_values(self, joint_values, duration=0.1):
+        # forward kinematics with MoveIt
+        # self.goto_preset_location("test")
+
+        # inverse kinematics with MoveIt
+        # self.reach_goal()
+
+        # pick-and-place
+        # self.pickandplace()
+
+    def reach_goal(self):
+        """
+        Give a goal to the end effector to reach
+        """
+        pose_to_reach = copy.deepcopy(self._arm_group.get_current_pose())
+        pose_to_reach.pose.position.x -= 1
+        pose_to_reach.pose.position.z += 0.5
+        self._arm_group.set_pose_target(pose_to_reach)
+        self._arm_group.go()
+
+    def publish_joint_values(self, duration=0.1):
         """
         Publish joint values to the Topic /ariac/kitting/kitting_arm_controller/command
         """
+        joint_values = [-1, 0.09, -0.75, 2.02, -2.11, -1.58, 0]
+
         jt_ur10 = JointTrajectory()
         jt_ur10.joint_names = ['linear_arm_actuator_joint',
                                'shoulder_pan_joint',
@@ -153,7 +172,7 @@ class Manipulation(object):
         arm_joints = [x, 0, -1.25, 1.74, -2.66, -1.51, 0]
         self._arm_group.go(arm_joints, wait=True)
 
-    def pickandplace_1(self):
+    def pickandplace(self):
         """
         Hard coded poses for pick and place
         """
