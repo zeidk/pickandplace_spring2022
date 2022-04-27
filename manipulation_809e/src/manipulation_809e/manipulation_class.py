@@ -9,6 +9,8 @@ import rospy
 from geometry_msgs.msg import Pose
 from enpm809e_msgs.srv import VacuumGripperControl
 from enpm809e_msgs.msg import VacuumGripperState
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+
 # moveit
 import moveit_commander as mc
 
@@ -17,6 +19,11 @@ class Manipulation(object):
 
     def __init__(self, node_name='manipulation_809e', ns='',
                  robot_description='robot_description'):
+
+        self.joint_pulisher = rospy.Publisher(
+            "/ariac/kitting/kitting_arm_controller/command",
+            JointTrajectory,
+            queue_size=100)
 
         mc.roscpp_initialize(sys.argv)
         rospy.init_node(node_name, anonymous=True)
@@ -61,7 +68,38 @@ class Manipulation(object):
         Main function to start the Node core
         """
         # self.pickandplace_1()
-        pass
+
+        # publish joint values
+        # joint_value = [-1, 0.09, -0.75, 2.02, -2.11, -1.58, 0]
+        # rospy.loginfo("publishing joint values")
+        # self.publish_joint_values(joint_value)
+
+    def publish_joint_values(self, joint_values, duration=0.1):
+        """
+        Publish joint values to the Topic /ariac/kitting/kitting_arm_controller/command
+        """
+        jt_ur10 = JointTrajectory()
+        jt_ur10.joint_names = ['linear_arm_actuator_joint',
+                               'shoulder_pan_joint',
+                               'shoulder_lift_joint',
+                               'elbow_joint',
+                               'wrist_1_joint',
+                               'wrist_2_joint',
+                               'wrist_3_joint']
+
+        jtpt = JointTrajectoryPoint()
+        jtpt.positions = [joint_values[0],
+                          joint_values[1],
+                          joint_values[2],
+                          joint_values[3],
+                          joint_values[4],
+                          joint_values[5],
+                          joint_values[6]]
+        jtpt.velocities = [1, 1, 1, 1, 1, 1, 1]
+        jtpt.accelerations = [1, 1, 1, 1, 1, 1, 1]
+        jtpt.time_from_start = rospy.Duration.from_sec(duration)
+        jt_ur10.points.append(jtpt)
+        self.joint_pulisher.publish(jt_ur10)
 
     def activate_gripper(self):
         """
@@ -202,7 +240,7 @@ class Manipulation(object):
             place_pose (geometry_msgs.Pose): Pose of the part in the
             world frame
         """
-        
+
         # move the arm closer to the drop pose
         self.move_arm_base(place_pose.position.x)
 
